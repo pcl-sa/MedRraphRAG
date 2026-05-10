@@ -1,0 +1,36 @@
+# ── Secrets ──
+.env
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# ── Node / Frontend ──
+node_modules/
+frontend/dist/
+frontend/.npm-cache/
+
+# ── Data & Models (large files) ──
+Data_original/
+data/chroma/
+data/processed/
+data/raw/
+models/embedding/
+
+# ── Checkpoint / Temp ──
+*.tmp
+*_checkpoint.json
+
+# ── IDE & OS ──
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+Desktop.ini
+
+# ── Jupyter ──
+.ipynb_checkpoints/
