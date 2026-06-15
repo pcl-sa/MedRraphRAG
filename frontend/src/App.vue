@@ -15,8 +15,14 @@
         >
           <span class="conv-title">{{ conv.title || '新对话' }}</span>
           <span class="conv-time">{{ conv.time }}</span>
+          <button class="del-btn" @click.stop="deleteConversation(cid)" title="删除对话">×</button>
         </div>
       </div>
+      <button
+        v-if="Object.keys(conversations).length > 0"
+        class="clear-all-btn"
+        @click="clearAllConversations"
+      >清空全部对话</button>
       <div class="sidebar-footer">
         <div class="status" :class="{ connected: health.neo4j_connected }">
           {{ health.neo4j_connected ? '图谱已连接' : '图谱未连接' }}
@@ -112,6 +118,30 @@ function startNewChat() {
 
 function switchConversation(cid) {
   currentId.value = cid
+}
+
+function deleteConversation(cid) {
+  const ids = Object.keys(conversations.value)
+  if (ids.length <= 1) {
+    // Deleting the last conversation — just clear messages
+    conversations.value[cid].messages = []
+    conversations.value[cid].title = '新对话'
+  } else {
+    delete conversations.value[cid]
+    if (currentId.value === cid) {
+      const remaining = Object.keys(conversations.value)
+      currentId.value = remaining.length > 0 ? remaining[remaining.length - 1] : null
+    }
+  }
+  saveToStorage()
+}
+
+function clearAllConversations() {
+  if (confirm('确定要清空全部对话记录吗？此操作不可撤销。')) {
+    conversations.value = {}
+    currentId.value = null
+    saveToStorage()
+  }
 }
 
 // ── Non-streaming send (legacy) ──
@@ -295,6 +325,32 @@ onMounted(async () => {
 .conv-item.active { background: #0f3460; }
 .conv-title { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-time { font-size: 11px; color: #888; margin-left: 8px; flex-shrink: 0; }
+.del-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  margin-left: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  visibility: hidden;
+}
+.conv-item:hover .del-btn { visibility: visible; }
+.del-btn:hover { color: #e74c3c; }
+.clear-all-btn {
+  margin-top: 8px;
+  padding: 8px;
+  background: transparent;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  width: 100%;
+}
+.clear-all-btn:hover { background: #e74c3c; color: #fff; }
 .sidebar-footer {
   border-top: 1px solid #333;
   padding-top: 12px;
