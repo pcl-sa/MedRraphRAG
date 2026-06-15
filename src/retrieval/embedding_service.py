@@ -26,13 +26,15 @@ class EmbeddingService:
         # Handle both direct path and HF cache format
         if (model_dir / "config.json").exists():
             return model_dir
-        pattern = "models--sentence-transformers--all-MiniLM-L6-v2"
-        for p in model_dir.rglob(pattern):
-            snapshots = p / "snapshots"
-            if snapshots.exists():
-                dirs = list(snapshots.iterdir())
-                if dirs:
-                    return dirs[0]
+        # Search for any HF snapshot under the model directory
+        snapshots_dirs = list(model_dir.rglob("snapshots"))
+        if not snapshots_dirs:
+            raise FileNotFoundError(f"Cannot find snapshots/ under {model_dir}")
+        # Use the first snapshot directory that contains model files
+        for snap_dir in snapshots_dirs:
+            dirs = list(snap_dir.iterdir())
+            if dirs:
+                return dirs[0]
         raise FileNotFoundError(f"Cannot find model snapshot under {model_dir}")
 
     @property

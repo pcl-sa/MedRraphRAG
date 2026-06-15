@@ -10,11 +10,7 @@ from .schema import ExtractionResult, ExtractedTriple, RelationType, EntityType,
 
 # ====================== 模型列表（按优先级排列，前一个 token 耗尽时自动切换下一个）======================
 MODEL_LIST = [
-    "qwen-max",
-    "qwen3.6-plus",
-    "qwen-vl-plus",
-    "qwen3-8b",
-    "qwen2-7b-instruct",
+    "qwen3.7-max",
 ]
 # ==================================================================================================
 
