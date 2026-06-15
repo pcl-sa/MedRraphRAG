@@ -133,6 +133,6 @@ POST /api/chat
 | 图数据库 | Neo4j |
 | LLM 框架 | LangChain |
 | LLM 供应商 | 通义千问 (DashScope) |
-| Embedding | all-MiniLM-L6-v2 (384维) |
+| Embedding | BAAI/bge-small-zh-v1.5|
 | 后端 | FastAPI + Uvicorn |
 | 前端 | Vue 3 + Vite + vis-network |
