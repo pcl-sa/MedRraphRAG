@@ -30,15 +30,29 @@ class GraphRetriever:
 
     def link_entities(self, question: str) -> List[Dict]:
         """Extract medical entities from question and map to KG nodes."""
-        # Step 1: Extract noun phrases using jieba
-        words = pseg.cut(question)
-        candidates = [w.word for w in words if w.flag in ("n", "nr", "ns", "nt", "nz", "eng")
-                      and len(w.word) >= 2]
-
-        # Step 2: For each candidate, query Neo4j with CONTAINS
         linked = []
         seen_names = set()
-        for kw in candidates[:8]:  # limit candidates
+
+        # Step 1: jieba POS tagging — use broader tags to catch medical terms
+        # Medical terms often tagged as v(verb), a(adjective), vn(gerund) by jieba
+        words = pseg.cut(question)
+        candidates = [w.word for w in words
+                      if w.flag in ("n", "nr", "ns", "nt", "nz", "eng",
+                                    "v", "vn", "vd", "a", "an", "ad")
+                      and len(w.word) >= 2]
+
+        # Step 2: Also try bigram sliding window as fallback (catch "手脚麻木" etc)
+        for i in range(len(question) - 1):
+            bigram = question[i:i+2]
+            if bigram not in candidates:
+                candidates.append(bigram)
+        for i in range(len(question) - 2):
+            trigram = question[i:i+3]
+            if trigram not in candidates:
+                candidates.append(trigram)
+
+        # Step 3: For each candidate, query Neo4j with CONTAINS
+        for kw in candidates[:15]:  # limit candidates
             rows = self._run(
                 """
                 MATCH (e:Entity)
