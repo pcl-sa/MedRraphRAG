@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from neo4j import GraphDatabase
 from typing import List, Dict
 from ..config import get_settings
@@ -52,11 +54,8 @@ class Neo4jImporter:
           ON CREATE SET h.type = t.head_type
         MERGE (t2:Entity {name: t.tail_entity})
           ON CREATE SET t2.type = t.tail_type
-        CREATE (h)-[r:RELATION {
-          type: t.relation,
-          confidence: t.confidence,
-          evidence: t.evidence
-        }]->(t2)
+        MERGE (h)-[r:RELATION {type: t.relation}]->(t2)
+          ON CREATE SET r.confidence = t.confidence, r.evidence = t.evidence
         """
 
         batch_size = 200
@@ -69,6 +68,67 @@ class Neo4jImporter:
         counts = self.get_stats()
         print(f"  Import complete: {counts['nodes']} nodes, {counts['edges']} edges")
         return counts
+
+    def import_from_json(self, json_path: str, clear_first: bool = False) -> Dict[str, int]:
+        """Import knowledge graph from a JSON file (knowledge_graph.json format).
+
+        JSON format: {"entities": [{"name":..., "type":...}], "triples": [{"head":..., "relation":..., "tail":..., "confidence":..., "evidence":...}]}
+
+        Args:
+            json_path: path to the JSON file
+            clear_first: if True, delete all existing nodes/edges before import
+        """
+        path = Path(json_path)
+        if not path.exists():
+            raise FileNotFoundError(f"JSON file not found: {path}")
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        entities_data = data.get("entities", [])
+        triples_data = data.get("triples", [])
+        meta = data.get("meta", {})
+
+        print(f"Loading {path.name}: {len(entities_data)} entities, {len(triples_data)} triples")
+        if meta:
+            print(f"  Meta: {meta.get('entity_count', '?')} entities, {meta.get('triple_count', '?')} triples")
+
+        # Build entity name → type lookup
+        entity_types: Dict[str, str] = {}
+        for e in entities_data:
+            if e.get("name"):
+                entity_types[e["name"]] = e.get("type", "unknown")
+
+        # Also extract entity types from triples (head/tail may have implicit types)
+        def infer_type(name: str) -> str:
+            return entity_types.get(name, "unknown")
+
+        # Convert to import_triples format
+        formatted: List[dict] = []
+        for t in triples_data:
+            head = t.get("head", "")
+            tail = t.get("tail", "")
+            if not head or not tail:
+                continue
+            formatted.append({
+                "head_entity": head,
+                "head_type": infer_type(head),
+                "tail_entity": tail,
+                "tail_type": infer_type(tail),
+                "relation": t.get("relation", "related_to"),
+                "confidence": float(t.get("confidence", 0.5)),
+                "evidence": t.get("evidence", ""),
+            })
+
+        if not formatted:
+            print("  No valid triples to import.")
+            return self.get_stats()
+
+        if clear_first:
+            self.clear_all()
+
+        self.create_constraints()
+        return self.import_triples(formatted)
 
     def get_stats(self) -> Dict[str, int]:
         """Return node and relationship counts."""
@@ -88,3 +148,18 @@ class Neo4jImporter:
             "MATCH (e:Entity) RETURN e.type AS type, count(e) AS cnt ORDER BY cnt DESC"
         )
         return {r["type"]: r["cnt"] for r in rows}
+
+
+if __name__ == "__main__":
+    import sys
+    importer = Neo4jImporter()
+    try:
+        if len(sys.argv) < 2:
+            print("Usage: python -m src.kg.neo4j_importer <knowledge_graph.json> [--clear]")
+            print("  --clear  Delete all existing nodes/edges before import")
+        else:
+            json_path = sys.argv[1]
+            clear = "--clear" in sys.argv
+            importer.import_from_json(json_path, clear_first=clear)
+    finally:
+        importer.close()
